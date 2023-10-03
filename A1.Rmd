@@ -1,0 +1,191 @@
+---
+title: "Assignment 1"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-09-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this assignment, we will examine 3 different datasets, split into small, large and test, and construct polynomial regression models accordingly. The models will have this form:
+$$y = f(x) = \beta_{0} + \sum_{k=1}^{K}\beta_{k}x^{k}$$
+
+In the report below, we will visualize the data, evaluate the MSE values, as well as make conclusions on what polynomial regression models best generalize the unseen data.
+
+Furthermore, we will explore underfitting, overfitting and model generalization, and how to improve these issues.
+
+Import required libraries.
+
+```{r cars}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(tinytex)
+```
+
+## Import the datasets
+We import 3 different datasets, with 9 sheets in total.
+```{r pressure}
+filename = "/Users/nguyennhatle/Desktop/UTM/STA/STA314/ASSIGNMENTS/A1/Dataset_1.xlsx"
+small_train1 = read_excel(filename, sheet=1)
+large_train1 = read_excel(filename, sheet=2)
+test_data1 = read_excel(filename, sheet=3)
+small_train2 = read_excel(filename, sheet=4)
+large_train2 = read_excel(filename, sheet=5)
+test_data2 = read_excel(filename, sheet=6)
+small_train3 = read_excel(filename, sheet=7)
+large_train3 = read_excel(filename, sheet=8)
+test_data3 = read_excel(filename, sheet=9)
+# Store all datasets in 1 list for future use
+dataset_list = list()
+for (i in 1:9) {
+  dataset_list[[i]] = read_excel(filename, sheet=i)
+}
+dataset_names = list()
+dataset_names[[1]] = 'small_train1'
+dataset_names[[2]] = 'large_train1'
+dataset_names[[3]] = 'test_data1'
+dataset_names[[4]] = 'small_train2'
+dataset_names[[5]] = 'large_train2'
+dataset_names[[6]] = 'test_data2'
+dataset_names[[7]] = 'small_train3'
+dataset_names[[8]] = 'large_train3'
+dataset_names[[9]] = 'test_data3'
+```
+
+## Build the models
+The model of each dataset is fitted using polynomial regression, and its MSE values that evaluate model predictions with unseen data (test dataset) are displayed and visualized. Moreover, the parameter vectors $$\beta_{K} = [\beta_{0},\beta_{1},..,\beta_{K}]^T$$ are estimated.
+```{r}
+# This is a loop that generates the MSE graphs and tables, as well as the parameter vector of each K, for each dataset
+for (i in 1:9) {
+  dataset <- dataset_list[[i]]
+  mse_train <- c()
+  mse_test <- c()
+  # Vector that stores the coefficients/parameters of the model
+  models_coefs <- c()
+  if (i %% 3 != 0) {
+    for (k in 1:10) {
+      model <- lm(y ~ poly(x, k, raw=TRUE), data=dataset)
+      train_fit <- model %>% predict(dataset)
+      train_mse <- mean((dataset$y - train_fit)^2)
+      mse_train[k] <- train_mse
+      test_data <- dataset_list[[(floor(i/3) + 1)*3]]
+      test_fit <- model %>% predict(test_data)
+      test_mse <- mean((test_data$y - test_fit)^2)
+      mse_test[k] <- test_mse
+      models_coefs[[k]] <- as.vector(coef(model))
+    }
+    mse <- data.frame(
+        x = 1:length(mse_train),
+        y1 = mse_train,
+        y2 = mse_test
+      )
+    print(dataset_names[[i]])
+    print("PARAMETERS VECTORS FOR EACH VALUE OF K")
+    print(models_coefs)
+    print("Let y1 be the mse values for training dataset, y2 be the mse values for testing dataset")
+    print("MSE")
+    print(mse)
+    # Plot the graph
+    print(ggplot(mse, aes(x=x)) + 
+      geom_line(aes(y = y1, color="Train"), linetype = "solid") + 
+      geom_line(aes(y = y2, color="Test"), linetype = "solid") +
+      labs(
+        title = "MSE for differrent values of K",
+        x = "Degree of polynomial",
+        y = "MSE"
+      ) + scale_color_manual(values = c("Train" = "blue", "Test" = "red")) + 
+      theme_minimal() + theme(legend.title = element_blank()))
+    
+    
+  }
+}
+```
+
+It can be noticed that the mean squared errors of the test dataset using the model trained by the smaller dataset are generally larger than that trained by the larger one. This might be due to the fact that it is harder for small dataset to capture the pattern of an unseen dataset, as it has high bias and low variance (underfitting). The difference in size may also result in relatively different parameters and best model polynomial degree.
+
+After training the model on both small and large datasets, and looking at the results for the mean squared errors of the test datasets, it can be observed that the MSE values are always lowest at K = 2 for dataset 1, K = 6 for dataset 2, and K = 4 for dataset 3. In this case, overfitting might be the problem, as the increase of model complexity results in higher MSE. Therefore, it can be concluded that the unseen dataset (test) is best generalized with a polynomial model with degree 2, 6 and 4 for datasets 1, 2 and 3 respectively. 
+
+
+Using the results of the models' parameter vectors above, we have the following models that best generalized the data:
+
+Dataset 1: 
+$$y = f(x) = 3.004289 + 1.963497x + 3.948467x^{2}$$
+Dataset 2:
+$$y = f(x) = 8.3410445 + 5.9864062x  -3.2654784x^{2} + 0.8954613x^{3} + 4.9062001x^{4} + 0.7793007x^{5} -0.4399983x^{6}$$
+Dataset 3:
+$$y = f(x) = 3.995074 + 5.009388x + 3.178168x^{2} + 1.997241x^{3} + 1.641315x^{4}$$
+During the training of the models, underfitting and overfitting are inevitable, as analyzed above. In order to avoid the underfitting issue, we can either increase the models' complexity (for example, the degree), or increase the size of the datasets (for example, the model with large_train1 dataset performs better). On the other hand, overfitting can be prevented by reducing the model complexity and choosing the right polynomial degree. 
+
+```{r}
+mse_train <- c()
+mse_test <- c()
+for (k in 1:10) {
+  model <- lm(y ~ poly(x, k, raw=TRUE), data = small_train3)
+  train_fit <- model %>% predict(small_train3)
+  train_mse <- mean((small_train3$y - train_fit)^2)
+  mse_train[k] <- train_mse
+  test_fit <- model %>% predict(test_data1)
+  test_mse <- mean((test_data1$y - train_fit)^2)
+}
+mse_test
+```
+
+
+## Appendix: Compare model fits for different values of K:
+Model fits for K from 1 to 10 for small_train1 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=small_train1, color="blue") + geom_point(data=test_data1, color="green") + stat_smooth(data=small_train1, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + ggtitle(paste("K =", k))
+  print(g)
+}
+```
+
+Model fits for K from 1 to 10 for large_train1 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=large_train1, color="blue") + geom_point(data=test_data1, color="green") + stat_smooth(data=large_train1, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + ggtitle(paste("K =", k))
+  print(g)
+}
+```
+
+Model fits for K from 1 to 10 for small_train2 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=small_train2, color="blue") + geom_point(data=test_data2, color="green") + stat_smooth(data=small_train2, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + 
+    ggtitle(paste("K =", k))
+  print(g)
+}
+```
+
+Model fits for K from 1 to 10 for large_train2 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=large_train2, color="blue") + geom_point(data=test_data2, color="green") + stat_smooth(data=large_train2, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + 
+    ggtitle(paste("K =", k))
+  print(g)
+}
+```
+
+Model fits for K from 1 to 10 for small_train3 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=small_train3, color="blue") + geom_point(data=test_data3, color="green") + stat_smooth(data=small_train3, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + 
+    ggtitle(paste("K =", k))
+  print(g)
+}
+```
+
+Model fits for K from 1 to 10 for large_train3 dataset:
+```{r}
+for (k in 1:10) {
+  g <- ggplot(data=NULL, aes(x=x, y=y)) + geom_point(data=large_train3, color="blue") + geom_point(data=test_data3, color="green") + stat_smooth(data=large_train3, method="lm", formula=y~poly(x, k, raw=FALSE), se=FALSE, color="red") + 
+    ggtitle(paste("K =", k))
+  print(g)
+}
+```
